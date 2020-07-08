@@ -84,6 +84,7 @@ import org.springframework.extensions.surf.util.I18NUtil;
 public class GroupsImpl implements Groups
 {
     private static final int MAX_ZONES = 1;
+    private static final int MAX_DISPLAY_NAMES = 1;
     private static final String DISPLAY_NAME = "displayName";
     private static final String AUTHORITY_NAME = "authorityName";
     private static final String ERR_MSG_MODIFY_FIXED_AUTHORITY = "Trying to modify a fixed authority";
@@ -193,6 +194,7 @@ public class GroupsImpl implements Groups
         Query q = parameters.getQuery();
         Boolean isRootParam = null;
         String zoneFilter = null;
+        String displayNameFilter = null;
         if (q != null)
         {
             GroupsQueryWalker propertyWalker = new GroupsQueryWalker();
@@ -200,10 +202,16 @@ public class GroupsImpl implements Groups
 
             isRootParam = propertyWalker.getIsRoot();
             List<String> zonesParam = propertyWalker.getZones();
+            List<String> displayNamesParam = propertyWalker.getDisplayNames();
             if (zonesParam != null)
             {
                 validateZonesParam(zonesParam);
                 zoneFilter = zonesParam.get(0);
+            }
+            if (displayNamesParam != null)
+            {
+                validateDisplayNamesParam(displayNamesParam);
+                displayNameFilter = displayNamesParam.get(0);
             }
         }
 
@@ -213,7 +221,7 @@ public class GroupsImpl implements Groups
         PagingResults<AuthorityInfo> pagingResult;
         try
         {
-            pagingResult = getAuthoritiesInfo(authorityType, isRootParam, zoneFilter, rootAuthorities, sortProp, paging);
+            pagingResult = getAuthoritiesInfo(authorityType, isRootParam, zoneFilter, displayNameFilter, rootAuthorities, sortProp, paging);
         }
         catch (UnknownAuthorityException e)
         {
@@ -258,6 +266,25 @@ public class GroupsImpl implements Groups
             if (zone.isEmpty())
             {
                 throw new IllegalArgumentException("Zone name cannot be empty (i.e. '')");
+            }
+        });
+    }
+
+    private void validateDisplayNamesParam(List<String> displayNamesParam)
+    {
+        if (displayNamesParam.size() > MAX_DISPLAY_NAMES)
+        {
+            throw new IllegalArgumentException("A maximum of " + MAX_DISPLAY_NAMES + " displayNames may be specified.");
+        }
+        else if (displayNamesParam.isEmpty())
+        {
+            throw new IllegalArgumentException("DisplayNames filter list cannot be empty.");
+        }
+
+        displayNamesParam.forEach(groupName -> {
+            if (groupName.isEmpty())
+            {
+                throw new IllegalArgumentException("DisplayName cannot be empty (i.e. '')");
             }
         });
     }
@@ -334,8 +361,8 @@ public class GroupsImpl implements Groups
         return CollectionWithPagingInfo.asPaged(paging, groups, pagingResult.hasMoreItems(), totalItems);
     }
 
-    private PagingResults<AuthorityInfo> getAuthoritiesInfo(AuthorityType authorityType, Boolean isRootParam, String zoneFilter, Set<String> rootAuthorities, Pair<String, Boolean> sortProp,
-            Paging paging)
+    private PagingResults<AuthorityInfo> getAuthoritiesInfo(AuthorityType authorityType, Boolean isRootParam, String zoneFilter, String groupNamesFilter, Set<String> rootAuthorities, 
+                                                            Pair<String, Boolean> sortProp, Paging paging)
     {
         PagingResults<AuthorityInfo> pagingResult;
 
@@ -350,6 +377,7 @@ public class GroupsImpl implements Groups
                 List<AuthorityInfo> authorities = rootAuthorities.stream().
                         map(this::getAuthorityInfo).
                         filter(auth -> zonePredicate(auth.getAuthorityName(), zoneFilter)).
+                        filter(auth -> displayNamePredicate(auth.getAuthorityDisplayName(), groupNamesFilter)).
                         collect(Collectors.toList());
                 groupList = new ArrayList<>(rootAuthorities.size());
                 groupList.addAll(authorities);
@@ -367,7 +395,7 @@ public class GroupsImpl implements Groups
                 // Get authorities using canned query but without using
                 // the requested paginating now because we need to filter out
                 // the root authorities.
-                PagingResults<AuthorityInfo> nonPagingResult = authorityService.getAuthoritiesInfo(authorityType, zoneFilter, null, sortProp.getFirst(), sortProp.getSecond(),
+                PagingResults<AuthorityInfo> nonPagingResult = authorityService.getAuthoritiesInfo(authorityType, zoneFilter, groupNamesFilter, sortProp.getFirst(), sortProp.getSecond(),
                         pagingNoMaxItems);
 
                 // Post process filtering - this should be moved to service
@@ -395,7 +423,7 @@ public class GroupsImpl implements Groups
             PagingRequest pagingRequest = Util.getPagingRequest(paging);
 
             // Get authorities using canned query.
-            pagingResult = authorityService.getAuthoritiesInfo(authorityType, zoneFilter, null, sortProp.getFirst(), sortProp.getSecond(), pagingRequest);
+            pagingResult = authorityService.getAuthoritiesInfo(authorityType, zoneFilter, groupNamesFilter, sortProp.getFirst(), sortProp.getSecond(), pagingRequest);
         }
         return pagingResult;
     }
@@ -459,6 +487,23 @@ public class GroupsImpl implements Groups
         if (requiredZone != null)
         {
             return zones != null && zones.contains(requiredZone);
+        }
+        return true;
+    }
+
+    /**
+     * Checks to see if the named group authority should be included in results
+     * when filtered by displayName.
+     *
+     * @param groupName
+     * @param requiredDisplayName
+     * @return true if result should be included.
+     */
+    private boolean displayNamePredicate(String groupName, String  requiredDisplayName)
+    {
+        if (requiredDisplayName != null)
+        {
+            return groupName != null && groupName.equals(requiredDisplayName);
         }
         return true;
     }
@@ -1026,6 +1071,7 @@ public class GroupsImpl implements Groups
     private static class GroupsQueryWalker extends MapBasedQueryWalker
     {
         private List<String> zones;
+        private List<String> displayNames;
 
         public GroupsQueryWalker()
         {
@@ -1044,6 +1090,10 @@ public class GroupsImpl implements Groups
             if (propertyName.equalsIgnoreCase("zones"))
             {
                 zones = Arrays.asList(propertyValues);
+            }
+            if (propertyName.equalsIgnoreCase(DISPLAY_NAME))
+            {
+                displayNames = Arrays.asList(propertyValues);
             }
         }
 
@@ -1065,6 +1115,16 @@ public class GroupsImpl implements Groups
         public Boolean getIsRoot()
         {
             return getProperty(PARAM_IS_ROOT, WhereClauseParser.EQUALS, Boolean.class);
+        }
+
+        /**
+         * The list of displayName specified in the where clause.
+         *
+         * @return The displayNames list if specified, or null if not.
+         */
+        public List<String> getDisplayNames()
+        {
+            return displayNames;
         }
     }
 }
