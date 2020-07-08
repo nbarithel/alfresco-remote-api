@@ -1858,7 +1858,8 @@ public class GroupsTest extends AbstractSingleNetworkSiteTest
         return subGroup;
     }
 
-    private void testGetGroupsWithDisplayNameFilter() throws Exception {
+    private void testGetGroupsWithDisplayNameFilter() throws Exception 
+    {
         shouldFilterGroupByDisplayName();
         shouldFilterGroupByDisplayNameWhenNameNotExist();
         shouldFilterGroupByDisplayNameAndZone();
@@ -1868,7 +1869,8 @@ public class GroupsTest extends AbstractSingleNetworkSiteTest
         shouldReturnBadRequestErrorWhenDisplayNameIsEmpty();
     }
 
-    private void shouldFilterGroupByDisplayName() throws Exception {
+    private void shouldFilterGroupByDisplayName() throws Exception 
+    {
         Paging paging = getPaging(0, Integer.MAX_VALUE);
         Map<String, String> otherParams = new HashMap<>();
         otherParams.put("where", "(displayName in ('A Group'))");
@@ -1880,7 +1882,8 @@ public class GroupsTest extends AbstractSingleNetworkSiteTest
         assertEquals("A Group", groups.get(0).getDisplayName());
     }
 
-    private void shouldFilterGroupByDisplayNameWhenNameNotExist() throws Exception {
+    private void shouldFilterGroupByDisplayNameWhenNameNotExist() throws Exception 
+    {
         Paging paging = getPaging(0, Integer.MAX_VALUE);
         Map<String, String> otherParams = new HashMap<>();
         otherParams.put("where", "(displayName in ('AGroupName'))");
@@ -1891,7 +1894,8 @@ public class GroupsTest extends AbstractSingleNetworkSiteTest
         assertTrue(groups.isEmpty());
     }
 
-    private void shouldFilterGroupByDisplayNameAndZone() throws Exception {
+    private void shouldFilterGroupByDisplayNameAndZone() throws Exception 
+    {
         Paging paging = getPaging(0, Integer.MAX_VALUE);
         Map<String, String> otherParams = new HashMap<>();
         addOrderBy(otherParams, org.alfresco.rest.api.Groups.PARAM_DISPLAY_NAME, true);
@@ -1906,7 +1910,8 @@ public class GroupsTest extends AbstractSingleNetworkSiteTest
         assertEquals("A Group", groups.get(0).getDisplayName());
     }
 
-    private void shouldFilterGroupByDisplayNameWhenGroupIsRoot() throws Exception {
+    private void shouldFilterGroupByDisplayNameWhenGroupIsRoot() throws Exception 
+    {
         Paging paging = getPaging(0, Integer.MAX_VALUE);
         Map<String, String> otherParams = new HashMap<>();
         otherParams.put("where", "(isRoot=true AND displayName in ('Root Group'))");
@@ -1918,7 +1923,8 @@ public class GroupsTest extends AbstractSingleNetworkSiteTest
         assertEquals("Root Group", groups.get(0).getDisplayName());
     }
 
-    private void shouldFilterGroupByDisplayNameAndZoneWhenGroupIsRoot() throws Exception {
+    private void shouldFilterGroupByDisplayNameAndZoneWhenGroupIsRoot() throws Exception 
+    {
         Paging paging = getPaging(0, Integer.MAX_VALUE);
         Map<String, String> otherParams = new HashMap<>();
         otherParams.put("include", org.alfresco.rest.api.Groups.PARAM_INCLUDE_ZONES);
