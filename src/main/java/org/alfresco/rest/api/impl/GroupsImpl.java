@@ -35,7 +35,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -363,11 +362,11 @@ public class GroupsImpl implements Groups
         String displayNameFilter = groupsFilter.getDisplayNameFilter();
         PagingResults<AuthorityInfo> pagingResult;
 
-        if (isRootParam != null)
+        if (isRootParam != null || displayNameFilter != null)
         {
             List<AuthorityInfo> groupList;
 
-            if (isRootParam)
+            if (isRootParam != null && isRootParam)
             {
                 // Limit the post processing work by using the already loaded
                 // list of root authorities.
@@ -392,7 +391,7 @@ public class GroupsImpl implements Groups
                 // Get authorities using canned query but without using
                 // the requested paginating now because we need to filter out
                 // the root authorities.
-                PagingResults<AuthorityInfo> nonPagingResult = authorityService.getAuthoritiesInfo(authorityType, zoneFilter, displayNameFilter, sortProp.getFirst(), sortProp.getSecond(),
+                PagingResults<AuthorityInfo> nonPagingResult = authorityService.getAuthoritiesInfo(authorityType, zoneFilter, null, sortProp.getFirst(), sortProp.getSecond(),
                         pagingNoMaxItems);
 
                 // Post process filtering - this should be moved to service
@@ -401,14 +400,11 @@ public class GroupsImpl implements Groups
                 groupList = nonPagingResult.getPage();
                 if (groupList != null)
                 {
-                    for (Iterator<AuthorityInfo> i = groupList.iterator(); i.hasNext();)
-                    {
-                        AuthorityInfo authorityInfo = i.next();
-                        if (!isRootParam.equals(isRootAuthority(rootAuthorities, authorityInfo.getAuthorityName())))
-                        {
-                            i.remove();
-                        }
-                    }
+                    groupList = groupList
+                            .stream()
+                            .filter(auth -> isRootPredicate(isRootParam, rootAuthorities, auth.getAuthorityName()))
+                            .filter(auth -> displayNamePredicate(auth.getAuthorityDisplayName(), displayNameFilter))
+                            .collect(Collectors.toList());
                 }
             }
 
@@ -420,7 +416,7 @@ public class GroupsImpl implements Groups
             PagingRequest pagingRequest = Util.getPagingRequest(paging);
 
             // Get authorities using canned query.
-            pagingResult = authorityService.getAuthoritiesInfo(authorityType, zoneFilter, displayNameFilter, sortProp.getFirst(), sortProp.getSecond(), pagingRequest);
+            pagingResult = authorityService.getAuthoritiesInfo(authorityType, zoneFilter, null, sortProp.getFirst(), sortProp.getSecond(), pagingRequest);
         }
         return pagingResult;
     }
@@ -491,16 +487,18 @@ public class GroupsImpl implements Groups
     /**
      * Checks to see if the named group authority should be included in results
      * when filtered by displayName.
-     *
-     * @param groupName
+     * <p>
+     * If the requiredDisplayName parameter is null, then the filter will not be applied (returns true.)
+     * <p>
+     * @param groupDisplayName
      * @param requiredDisplayName
      * @return true if result should be included.
      */
-    private boolean displayNamePredicate(String groupName, String  requiredDisplayName)
+    private boolean displayNamePredicate(String groupDisplayName, String  requiredDisplayName)
     {
         if (requiredDisplayName != null)
         {
-            return groupName != null && groupName.equals(requiredDisplayName);
+            return groupDisplayName != null && groupDisplayName.equalsIgnoreCase(requiredDisplayName);
         }
         return true;
     }
